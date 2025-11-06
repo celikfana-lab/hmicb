@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HMICB/HMICB7 Viewer 🎬</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz4/0.6.5/lz4.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 2px 2px 4px rgba(0,0,0,0.3), 0 0 10px rgba(255,255,255,0.3); }
+            to { text-shadow: 2px 2px 4px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.6); }
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .upload-area {
+            border: 3px dashed rgba(255,255,255,0.5);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .upload-area:hover {
+            border-color: white;
+            background: rgba(255,255,255,0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-area.dragover {
+            border-color: #4ade80;
+            background: rgba(74,222,128,0.2);
+            transform: scale(1.05);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 10px;
+        }
+
+        .viewer-section {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .info-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-card {
+            background: rgba(255,255,255,0.15);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .info-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        canvas {
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background: #000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        button {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .slider-container {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .frame-counter {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        .status.error {
+            background: rgba(239, 68, 68, 0.3);
+            border: 2px solid rgba(239, 68, 68, 0.5);
+        }
+
+        .status.success {
+            background: rgba(74, 222, 128, 0.3);
+            border: 2px solid rgba(74, 222, 128, 0.5);
+        }
+
+        .status.info {
+            background: rgba(59, 130, 246, 0.3);
+            border: 2px solid rgba(59, 130, 246, 0.5);
+        }
+
+        .debug-panel {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .debug-log {
+            opacity: 0.8;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 HMICB/HMICB7 Viewer 🎬</h1>
+        <p class="subtitle">Drop your animation files here!! LZ4 decompression supported!! 🚀</p>
+
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <h2>Click or Drag & Drop</h2>
+                <p>HMICB or HMICB7 files accepted!!</p>
+                <input type="file" id="fileInput" accept=".hmicb,.hmicb7">
+            </div>
+        </div>
+
+        <div class="viewer-section" id="viewerSection">
+            <div class="info-panel">
+                <div class="info-card">
+                    <div class="info-label">Size</div>
+                    <div class="info-value" id="sizeInfo">-</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">FPS</div>
+                    <div class="info-value" id="fpsInfo">-</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Frames</div>
+                    <div class="info-value" id="framesInfo">-</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Loop</div>
+                    <div class="info-value" id="loopInfo">-</div>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <div class="controls">
+                <button id="playBtn">▶️ Play</button>
+                <button id="pauseBtn">⏸️ Pause</button>
+                <button id="stopBtn">⏹️ Stop</button>
+                <div class="slider-container">
+                    <span class="frame-counter" id="frameCounter">0 / 0</span>
+                    <input type="range" id="frameSlider" min="0" max="0" value="0">
+                </div>
+            </div>
+
+            <div id="statusDiv"></div>
+            <div class="debug-panel">
+                <div class="debug-log" id="debugLog">Ready to load file...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const viewerSection = document.getElementById('viewerSection');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const debugLog = document.getElementById('debugLog');
+
+        let animationData = null;
+        let currentFrame = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let frames = [];
+
+        function log(msg) {
+            console.log(msg);
+            debugLog.innerHTML += msg + '<br>';
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+
+        // Upload area interactions
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        async function handleFile(file) {
+            log(`🔍 Loading file: ${file.name} (${file.size} bytes)`);
+            
+            const isCompressed = file.name.endsWith('.hmicb7');
+            const reader = new FileReader();
+            
+            reader.onload = async (e) => {
+                try {
+                    let data = new Uint8Array(e.target.result);
+                    
+                    if (isCompressed) {
+                        log('📦 Detected HMICB7 file - decompressing with LZ4...');
+                        data = await decompressLZ4(data);
+                        log(`✅ Decompressed to ${data.length} bytes!!`);
+                    }
+                    
+                    parseHMICB(data);
+                } catch (error) {
+                    showStatus('❌ Error: ' + error.message, 'error');
+                    log('💀 ERROR: ' + error.message);
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function decompressLZ4(compressedData) {
+            // Read original size (first 8 bytes)
+            const view = new DataView(compressedData.buffer);
+            const originalSize = Number(view.getBigUint64(0, true));
+            
+            log(`📊 Original size: ${originalSize} bytes`);
+            
+            // Get compressed data (skip first 8 bytes)
+            const compressed = compressedData.slice(8);
+            
+            log(`🔨 Decompressing ${compressed.length} bytes...`);
+            
+            try {
+                // Create output buffer
+                const decompressed = new Uint8Array(originalSize);
+                
+                // Manual LZ4 decompression (simplified decoder)
+                let srcPos = 0;
+                let dstPos = 0;
+                
+                while (srcPos < compressed.length) {
+                    // Read token
+                    const token = compressed[srcPos++];
+                    
+                    // Literal length
+                    let literalLength = token >> 4;
+                    if (literalLength === 15) {
+                        let len;
+                        do {
+                            len = compressed[srcPos++];
+                            literalLength += len;
+                        } while (len === 255);
+                    }
+                    
+                    // Copy literals
+                    for (let i = 0; i < literalLength; i++) {
+                        decompressed[dstPos++] = compressed[srcPos++];
+                    }
+                    
+                    if (srcPos >= compressed.length) break;
+                    
+                    // Read offset
+                    const offset = compressed[srcPos++] | (compressed[srcPos++] << 8);
+                    
+                    // Match length
+                    let matchLength = (token & 0x0F) + 4;
+                    if (matchLength === 19) {
+                        let len;
+                        do {
+                            len = compressed[srcPos++];
+                            matchLength += len;
+                        } while (len === 255);
+                    }
+                    
+                    // Copy match
+                    let matchPos = dstPos - offset;
+                    for (let i = 0; i < matchLength; i++) {
+                        decompressed[dstPos++] = decompressed[matchPos++];
+                    }
+                }
+                
+                log(`✅ Decompressed to ${dstPos} bytes (expected ${originalSize})!!`);
+                
+                if (dstPos !== originalSize) {
+                    log(`⚠️ Warning: decompressed size mismatch! Got ${dstPos}, expected ${originalSize}`);
+                }
+                
+                return decompressed.slice(0, dstPos);
+                
+            } catch (error) {
+                log(`💀 Decompression error: ${error.message}`);
+                throw new Error(`LZ4 decompression failed: ${error.message}`);
+            }
+        }
+
+        function parseHMICB(data) {
+            log('📖 Parsing HMICB format...');
+            
+            let offset = 0;
+            
+            // Check magic bytes
+            const magic = String.fromCharCode(...data.slice(0, 5));
+            if (magic !== 'HMICB') {
+                throw new Error('Invalid file format! Expected HMICB magic bytes!');
+            }
+            log('✅ Magic bytes verified: HMICB');
+            offset += 5;
+            
+            // Read header
+            const version = data[offset++];
+            const width = data[offset] | (data[offset + 1] << 8);
+            offset += 2;
+            const height = data[offset] | (data[offset + 1] << 8);
+            offset += 2;
+            const fps = data[offset] | (data[offset + 1] << 8);
+            offset += 2;
+            const totalFrames = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+            offset += 4;
+            const loop = data[offset++] === 1;
+            offset += 1; // Skip compression flag
+            offset += 14; // Skip reserved bytes
+            
+            log(`📊 Version: ${version}`);
+            log(`📏 Size: ${width}x${height}`);
+            log(`🎞️ FPS: ${fps}`);
+            log(`🎬 Frames: ${totalFrames}`);
+            log(`🔁 Loop: ${loop}`);
+            
+            animationData = { width, height, fps, totalFrames, loop };
+            
+            // Read frame index
+            const frameIndex = [];
+            for (let i = 0; i < totalFrames; i++) {
+                const frameOffset = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+                offset += 4;
+                const frameSize = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+                offset += 4;
+                const frameType = data[offset++];
+                frameIndex.push({ offset: frameOffset, size: frameSize, type: frameType });
+            }
+            
+            log(`📇 Read ${frameIndex.length} frame index entries`);
+            
+            // Decode all frames
+            frames = [];
+            let previousFrame = null;
+            
+            for (let i = 0; i < totalFrames; i++) {
+                const entry = frameIndex[i];
+                const frameData = data.slice(entry.offset, entry.offset + entry.size);
+                
+                if (entry.type === 0) {
+                    // Full frame
+                    const pixels = new Uint8ClampedArray(width * height * 4);
+                    for (let j = 0; j < width * height; j++) {
+                        pixels[j * 4] = frameData[j * 4];     // R
+                        pixels[j * 4 + 1] = frameData[j * 4 + 1]; // G
+                        pixels[j * 4 + 2] = frameData[j * 4 + 2]; // B
+                        pixels[j * 4 + 3] = frameData[j * 4 + 3]; // A
+                    }
+                    frames.push(pixels);
+                    previousFrame = new Uint8ClampedArray(pixels);
+                } else {
+                    // Delta frame
+                    const pixels = new Uint8ClampedArray(previousFrame);
+                    
+                    let deltaOffset = 0;
+                    const changeCount = frameData[deltaOffset] | (frameData[deltaOffset + 1] << 8) | (frameData[deltaOffset + 2] << 16) | (frameData[deltaOffset + 3] << 24);
+                    deltaOffset += 4;
+                    
+                    for (let j = 0; j < changeCount; j++) {
+                        const x = frameData[deltaOffset] | (frameData[deltaOffset + 1] << 8);
+                        deltaOffset += 2;
+                        const y = frameData[deltaOffset] | (frameData[deltaOffset + 1] << 8);
+                        deltaOffset += 2;
+                        const r = frameData[deltaOffset++];
+                        const g = frameData[deltaOffset++];
+                        const b = frameData[deltaOffset++];
+                        const a = frameData[deltaOffset++];
+                        
+                        const idx = (y * width + x) * 4;
+                        pixels[idx] = r;
+                        pixels[idx + 1] = g;
+                        pixels[idx + 2] = b;
+                        pixels[idx + 3] = a;
+                    }
+                    
+                    frames.push(pixels);
+                    previousFrame = new Uint8ClampedArray(pixels);
+                }
+            }
+            
+            log(`✅ Decoded ${frames.length} frames!!`);
+            
+            setupViewer();
+        }
+
+        function setupViewer() {
+            // Update UI
+            document.getElementById('sizeInfo').textContent = `${animationData.width}x${animationData.height}`;
+            document.getElementById('fpsInfo').textContent = animationData.fps;
+            document.getElementById('framesInfo').textContent = animationData.totalFrames;
+            document.getElementById('loopInfo').textContent = animationData.loop ? '✅' : '❌';
+            
+            // Setup canvas with PROPER dimensions
+            canvas.width = animationData.width;
+            canvas.height = animationData.height;
+            
+            // Scale canvas for better visibility but keep it CRISPY!!
+            const scale = Math.min(800 / animationData.width, 800 / animationData.height, 10);
+            const displayWidth = Math.floor(animationData.width * scale);
+            const displayHeight = Math.floor(animationData.height * scale);
+            
+            canvas.style.width = displayWidth + 'px';
+            canvas.style.height = displayHeight + 'px';
+            
+            // CRITICAL: Disable image smoothing for pixel-perfect rendering!!
+            ctx.imageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+            
+            log(`🎨 Canvas setup: ${animationData.width}x${animationData.height} → ${displayWidth}x${displayHeight} (${scale}x scale)`);
+            
+            // Setup slider
+            const slider = document.getElementById('frameSlider');
+            slider.max = animationData.totalFrames - 1;
+            slider.value = 0;
+            
+            // Show viewer
+            viewerSection.style.display = 'block';
+            
+            // Render first frame
+            renderFrame(0);
+            
+            showStatus('🎉 Animation loaded successfully!! Ready to play!! 🚀', 'success');
+            log('🎉 LETS GOOOOO!! Animation ready!!');
+        }
+
+        function renderFrame(frameIndex) {
+            currentFrame = frameIndex;
+            const imageData = new ImageData(frames[frameIndex], animationData.width, animationData.height);
+            ctx.putImageData(imageData, 0, 0);
+            
+            document.getElementById('frameCounter').textContent = `${frameIndex + 1} / ${animationData.totalFrames}`;
+            document.getElementById('frameSlider').value = frameIndex;
+        }
+
+        function play() {
+            if (isPlaying) return;
+            isPlaying = true;
+            
+            const frameDelay = 1000 / animationData.fps;
+            
+            animationInterval = setInterval(() => {
+                currentFrame++;
+                if (currentFrame >= animationData.totalFrames) {
+                    if (animationData.loop) {
+                        currentFrame = 0;
+                    } else {
+                        pause();
+                        return;
+                    }
+                }
+                renderFrame(currentFrame);
+            }, frameDelay);
+            
+            log('▶️ Playing animation...');
+        }
+
+        function pause() {
+            isPlaying = false;
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+            log('⏸️ Paused');
+        }
+
+        function stop() {
+            pause();
+            currentFrame = 0;
+            renderFrame(0);
+            log('⏹️ Stopped');
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusDiv');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = 'status';
+            }, 5000);
+        }
+
+        // Control button handlers
+        document.getElementById('playBtn').addEventListener('click', play);
+        document.getElementById('pauseBtn').addEventListener('click', pause);
+        document.getElementById('stopBtn').addEventListener('click', stop);
+        document.getElementById('frameSlider').addEventListener('input', (e) => {
+            pause();
+            renderFrame(parseInt(e.target.value));
+        });
+
+        log('🚀 Viewer initialized!! Drop a file to get started!!');
+    </script>
+</body>
+</html>
